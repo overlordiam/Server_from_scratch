@@ -30,20 +30,19 @@ class Httpfs():
                 print('Responding with list of files')
                 for f in self.files:
                     response += f + '\n'
-            elif re.search(r'\/\w+.\w+', path):
-                path = path.strip('/')
+        elif re.search(r'\/\w+.\w+', path):
+            path = path.strip('/')
+            if self.verbose:
+                print(f'Responding with contents of {path}')
+            if path in self.files:
+                theFile = open(self.directory + '/' + path, 'r')
+                response = theFile.read() + '\n'
+                theFile.close()
+            else:
                 if self.verbose:
-                    print(f'Responding with contents of {path}')
-                if path in self.files:
-                    theFile = open(self.directory + '/' + path, 'r')
-                    #print(f'File: {theFile}')
-                    response = theFile.read() + '\n'
-                    theFile.close()
-                else:
-                    if self.verbose:
-                        print(
-                            f'Responding with HTTP 404 - file(s) not found {path}')
-                    response = 'HTTP 404 - file(s) not found\n'
+                    print(
+                        f'Responding with HTTP 404 - file(s) not found {path}')
+                response = 'HTTP 404 - file(s) not found\n'
         return response
     
 
@@ -71,42 +70,7 @@ class Httpfs():
         return response
 
 
-def main(httpfs):
-
-    if httpfs.verbose:
-        print(f'Httpfs server is listening at port : {httpfs.port}')
-    while True:
-        conn, _ = httpfs.server.accept()
-        request = conn.recv(1024).decode("utf-8")
-        request = request.split('\r\n')
-        method_path_var = request[0].split()
-        method = method_path_var[0]
-        path = method_path_var[1]
-
-        # print(f'Method {method}')
-        # print(f'Path: {path}')
-
-        index = request.index('')
-        data = ''
-        for l in request[index+1:]:
-            data += l + '\n'
-
-        response = ''
-        # reg_ex = re.search(r'\/\w+.\w+', path)
-        if method == 'GET':
-            response = httpfs.get(path)
-        elif method == 'POST':
-            response = httpfs.post(data, path)
-        
-        print(response)
-
-
-        conn.sendall(response.encode('utf-8'))
-        conn.close()
-
-
-
-if __name__ == "__main__":
+def main():
 
     parser = argparse.ArgumentParser()
     parser.add_argument('-v', '--verbose', help='verbosity', action='store_true')
@@ -123,4 +87,34 @@ if __name__ == "__main__":
 
     httpfs = Httpfs(args.port, directory, args.verbose)
 
-    main(httpfs)   
+    if httpfs.verbose:
+        print(f'Httpfs server is listening at port : {httpfs.port}')
+    while True:
+        conn, _ = httpfs.server.accept()
+        request = conn.recv(1024).decode("utf-8")
+        request = request.split('\r\n')
+        method_path_var = request[0].split()
+        method = method_path_var[0]
+        path = method_path_var[1]
+
+        index = request.index('')
+        data = ''
+        for l in request[index+1:]:
+            data += l + '\n'
+
+        response = ''
+        if method == 'GET':
+            response = httpfs.get(path)
+        elif method == 'POST':
+            response = httpfs.post(data, path)
+        
+        print(response)
+
+
+        conn.sendall(response.encode('utf-8'))
+        conn.close()
+
+
+
+if __name__ == "__main__":
+    main()   
