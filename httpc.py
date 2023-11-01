@@ -6,14 +6,15 @@ import sys
 
 
 class HTTPC:
-    def __init__(self, host, port, path, data, file, overwrite, headers):
+    def __init__(self, host, port, path, data, file, overwrite, request):
         self.host = host
         self.port = port
         self.path = path
         self.data = data
         self.file = file
         self.overwrite = overwrite
-        self.headers = headers
+        self.request = request
+        # self.headers = headers
 
     def connect(self):
         self.conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -25,11 +26,8 @@ class HTTPC:
             sys.exit()
 
         self.connect()
-        
-        request = f"GET {self.path} HTTP/1.0\r\nHost: {self.host}\r\n\r\n"
-        # print("request: ")
-        # print(request)
-        self.conn.send(request.encode())
+        # print(self.request)
+        self.conn.send(self.request.encode())
 
         response = b""
         while True:
@@ -52,13 +50,8 @@ class HTTPC:
     def post(self, overwrite):
         self.connect()
 
-        request = f"POST {self.path} HTTP/1.0\r\n"
-        request += f"Host: {self.host}\r\n"
-        for k, v in self.headers.items():
-            request += f"{k}: {v}\r\n"
-
         if overwrite:
-            request += f"Overwrite: {self.overwrite}\r\n"
+            self.request += f"Overwrite: {self.overwrite}\r\n"
 
         if self.file and self.data:
             print("Enter inline data or file. Not both!!")
@@ -72,11 +65,11 @@ class HTTPC:
         elif self.data:
             body = self.data
            
-        request += "Content-Type: application/json\r\n"
-        request += f"Content-Length: {len(body)}\r\n\r\n"
-        request += body
-        print(request)
-        self.conn.sendall(request.encode())
+        self.request += "Content-Type: application/json\r\n"
+        self.request += f"Content-Length: {len(body)}\r\n\r\n"
+        self.request += body
+        print(self.request)
+        self.conn.sendall(self.request.encode())
 
         response = b""
         while True:
@@ -168,7 +161,12 @@ def main():
             k, v = header.split(":")
             headers[k] = v
 
-    httpc = HTTPC(hostname, port, path, args.data, args.file, args.overwrite, headers)
+    request = f"{args.method.upper()} {path} HTTP/1.0\r\n"
+    request += f"Host: {hostname}\r\n"
+    for k, v in headers.items():
+        request += f"{k}: {v}\r\n"
+
+    httpc = HTTPC(hostname, port, path, args.data, args.file, args.overwrite, request)
 
     if args.method.lower() == "get" and args.method.lower() not in ['post', 'help']:
         try:

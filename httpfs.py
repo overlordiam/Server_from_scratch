@@ -1,7 +1,9 @@
 import os
 import argparse
 import socket
+import json
 import re
+import xml.etree.ElementTree as ET
 
 
 class Httpfs():
@@ -21,13 +23,36 @@ class Httpfs():
         return server
 
 
-    def get(self, path):
+    def get(self, path, return_type):
         response = ''
         if path == '/':
             if self.verbose:
                 print('Responding with list of files')
-                for f in self.files:
-                    response += f + '\n'
+                if return_type == 'plain':
+                    for f in self.files:
+                        response += f"{f}\n"
+
+                elif return_type == 'json':
+                    data = {"files": self.files}
+                    response = json.dumps(data)
+
+                elif return_type == 'xml':
+                    root = ET.Element("files")
+                    for f in self.files:
+                        file_el = ET.SubElement(root, "file")
+                        file_el.text = f
+                    response = ET.tostring(root).decode()
+
+                elif return_type == 'html':
+                    response = "<html><body><ul>"
+                    for f in self.files:
+                        response += f"<li>{f}</li>"
+                    response += "</ul></body></html>"
+
+                else:
+                    for f in self.files:
+                        response += f + '\n'
+                        
         elif re.search(r'\/\w+.\w+', path):
             path = path.strip('/')
             if self.verbose:
@@ -103,6 +128,8 @@ def main():
         method_path_var = request[0].split()
         method = method_path_var[0]
         path = method_path_var[1]
+        overwrite = ''
+        return_type = ''
 
         index = request.index('')
         for header in request[2:index]:
@@ -111,19 +138,18 @@ def main():
             
             if 'Accept' in header:
                 return_type = header.split(":")[1].split("/")[1]
-                print(return_type)
+                
         data = ''
         for l in request[index+1:]:
             data += l + '\n'
 
         response = ''
         if method == 'GET':
-            response = httpfs.get(path)
+            response = httpfs.get(path, return_type)
         elif method == 'POST':
             response = httpfs.post(data, path, overwrite)
-        
-        print(response)
 
+        print(response)
 
         conn.sendall(response.encode('utf-8'))
         conn.close()
