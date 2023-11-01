@@ -11,9 +11,7 @@ class Httpfs():
         self.directory = directory
         self.verbose = verbose
         self.files = os.listdir(directory)
-        # print("in constructor, before connect")
         self.server = self.connect()
-        # print("in constructor, after connect")
 
 
     def connect(self):
@@ -38,24 +36,30 @@ class Httpfs():
                 theFile = open(self.directory + '/' + path, 'r')
                 response = theFile.read() + '\n'
                 theFile.close()
-            else:
-                if self.verbose:
-                    print(
-                        f'Responding with HTTP 404 - file(s) not found {path}')
-                response = 'HTTP 404 - file(s) not found\n'
+        else:
+            if self.verbose:
+                print(
+                    f'Responding with HTTP 404 - file(s) not found {path}')
+            response = 'HTTP 404 - file(s) not found\n'
         return response
     
 
-    def post(self, data, path):
+    def post(self, data, path, overwrite='true'):
         path = path.strip('/')
         response = ''
         if path in self.files:
-            if self.verbose:
-                print("Responding with data overwritten to file', path")
-            theFile = open(self.directory + '/' + path, 'w+')
-            theFile.write(data)
-            theFile.close()
-            response = 'Data overwritten to file '+path
+            if overwrite.lower() == "true":
+                if self.verbose:
+                    print("Responding with data overwritten to file', path")
+                theFile = open(self.directory + '/' + path, 'w+')
+                theFile.write(data)
+                theFile.close()
+                response = 'Data overwritten to file '+path
+            else:
+                res = f"File: {path} already exists. Not overwriting!!"
+                response += res
+                print(res)
+
         elif path not in self.files:
             if self.verbose:
                 print("Responding with data written to new file '+ path")
@@ -78,6 +82,8 @@ def main():
         '-p', '--port', help='Specify port - Default is 8080', type=int, default=8080)
     parser.add_argument('-d', '--directory',
                         help='Specify directory - Default is current', type=str)
+    # parser.add_argument("-o", "--overwrite", help="overwrite existing or not")
+
     args = parser.parse_args()
 
     directory = args.directory
@@ -93,11 +99,19 @@ def main():
         conn, _ = httpfs.server.accept()
         request = conn.recv(1024).decode("utf-8")
         request = request.split('\r\n')
+        print(request)
         method_path_var = request[0].split()
         method = method_path_var[0]
         path = method_path_var[1]
 
         index = request.index('')
+        for header in request[2:index]:
+            if 'Overwrite' in header:
+                overwrite = header.split(":")[1]
+            
+            if 'Accept' in header:
+                return_type = header.split(":")[1].split("/")[1]
+                print(return_type)
         data = ''
         for l in request[index+1:]:
             data += l + '\n'
@@ -106,7 +120,7 @@ def main():
         if method == 'GET':
             response = httpfs.get(path)
         elif method == 'POST':
-            response = httpfs.post(data, path)
+            response = httpfs.post(data, path, overwrite)
         
         print(response)
 

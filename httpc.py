@@ -6,12 +6,13 @@ import sys
 
 
 class HTTPC:
-    def __init__(self, host, port, path, data, file, headers):
+    def __init__(self, host, port, path, data, file, overwrite, headers):
         self.host = host
         self.port = port
         self.path = path
         self.data = data
         self.file = file
+        self.overwrite = overwrite
         self.headers = headers
 
     def connect(self):
@@ -48,13 +49,16 @@ class HTTPC:
         return response
 
 
-    def post(self):
+    def post(self, overwrite):
         self.connect()
 
         request = f"POST {self.path} HTTP/1.0\r\n"
         request += f"Host: {self.host}\r\n"
         for k, v in self.headers.items():
             request += f"{k}: {v}\r\n"
+
+        if overwrite:
+            request += f"Overwrite: {self.overwrite}\r\n"
 
         if self.file and self.data:
             print("Enter inline data or file. Not both!!")
@@ -133,6 +137,7 @@ def main():
     parser.add_argument("-d", "--data", help="Inline data to include in the request body")
     parser.add_argument("-f", "--file", help="File to include in the request body")
     parser.add_argument("-o", "--write", help="write server response to a file")
+    parser.add_argument("-r", "--overwrite", choices=["true", "false"], help="overwrite existing or not")
     parser.add_argument("url", help="URL to send the HTTP request to")
 
     args = parser.parse_args()
@@ -163,18 +168,16 @@ def main():
             k, v = header.split(":")
             headers[k] = v
 
-    httpc = HTTPC(hostname, port, path, args.data, args.file, headers)
+    httpc = HTTPC(hostname, port, path, args.data, args.file, args.overwrite, headers)
 
     if args.method.lower() == "get" and args.method.lower() not in ['post', 'help']:
         try:
             response = httpc.get()
         except AttributeError:
             sys.exit()
-
-
             
     elif args.method == "post" and args.method.lower() not in ['get', 'help']:
-        response = httpc.post()
+        response = httpc.post(args.overwrite)
 
     else:
         print("Enter one of the following: 'help', 'get' or 'post'")
