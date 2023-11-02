@@ -77,7 +77,7 @@ class Httpfs():
         response = ''
         files = os.listdir(self.directory)
         if path in files:
-            if overwrite.lower() == "true":
+            if overwrite.lower() == 'true':
                 if self.verbose:
                     print("Responding with data overwritten to file', path")
                 theFile = open(self.directory + '/' + path, 'w+')
@@ -87,7 +87,7 @@ class Httpfs():
             else:
                 res = f"File: {path} already exists. Not overwriting!!"
                 response += res
-                print(res)
+                # print(res)
 
         elif path not in files:
             if self.verbose:
@@ -106,17 +106,18 @@ def handle_new_client(conn, httpfs):
     print("1st line of handle_client")
     request = conn.recv(1024).decode("utf-8")
     request = request.split('\r\n')
-    print(request)
+    # print(request)
     method_path_var = request[0].split()
     method = method_path_var[0]
     path = method_path_var[1]
-    overwrite = ''
     return_type = ''
 
     index = request.index('')
     for header in request[2:index]:
         if 'Overwrite' in header:
             overwrite = header.split(":")[1]
+        else:
+            overwrite = None
         
         if 'Accept' in header:
             return_type = header.split(":")[1].split("/")[1]
@@ -132,11 +133,14 @@ def handle_new_client(conn, httpfs):
     if method == 'GET':
         response = httpfs.get(path, return_type)
     elif method == 'POST':
-        response = httpfs.post(data, path, overwrite)
+        if overwrite:
+            response = httpfs.post(data, path, overwrite)
+        else:
+            response = httpfs.post(data, path)
 
     lock.release()
 
-    print(response)
+    # print(response)
 
     conn.sendall(response.encode('utf-8'))
     conn.close()
