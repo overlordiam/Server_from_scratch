@@ -5,7 +5,6 @@ import json
 import re
 import xml.etree.ElementTree as ET
 import threading
-import time
 
 
 class Httpfs():
@@ -14,7 +13,6 @@ class Httpfs():
         self.port = port
         self.directory = directory
         self.verbose = verbose
-        self.files = os.listdir(directory)
         self.server = self.connect()
 
 
@@ -29,39 +27,40 @@ class Httpfs():
 
     def get(self, path, return_type):
         response = ''
+        files = os.listdir(self.directory)
         if path == '/':
             if self.verbose:
                 print('Responding with list of files')
                 if return_type == 'plain':
-                    for f in self.files:
+                    for f in files:
                         response += f"{f}\n"
 
                 elif return_type == 'json':
-                    data = {"files": self.files}
+                    data = {"files": files}
                     response = json.dumps(data)
 
                 elif return_type == 'xml':
                     root = ET.Element("files")
-                    for f in self.files:
+                    for f in files:
                         file_el = ET.SubElement(root, "file")
                         file_el.text = f
                     response = ET.tostring(root).decode()
 
                 elif return_type == 'html':
                     response = "<html><body><ul>"
-                    for f in self.files:
+                    for f in files:
                         response += f"<li>{f}</li>"
                     response += "</ul></body></html>"
 
                 else:
-                    for f in self.files:
+                    for f in files:
                         response += f + '\n'
                         
         elif re.search(r'\/\w+.\w+', path):
             path = path.strip('/')
             if self.verbose:
                 print(f'Responding with contents of {path}')
-            if path in self.files:
+            if path in files:
                 theFile = open(self.directory + '/' + path, 'r')
                 response = theFile.read() + '\n'
                 theFile.close()
@@ -76,7 +75,8 @@ class Httpfs():
     def post(self, data, path, overwrite='true'):
         path = path.strip('/')
         response = ''
-        if path in self.files:
+        files = os.listdir(self.directory)
+        if path in files:
             if overwrite.lower() == "true":
                 if self.verbose:
                     print("Responding with data overwritten to file', path")
@@ -89,7 +89,7 @@ class Httpfs():
                 response += res
                 print(res)
 
-        elif path not in self.files:
+        elif path not in files:
             if self.verbose:
                 print("Responding with data written to new file '+ path")
             theFile = open(self.directory + '/' + path, 'w+')
@@ -126,10 +126,15 @@ def handle_new_client(conn, httpfs):
         data += l + '\n'
 
     response = ''
+    lock = threading.RLock()
+    lock.acquire()
+
     if method == 'GET':
         response = httpfs.get(path, return_type)
     elif method == 'POST':
         response = httpfs.post(data, path, overwrite)
+
+    lock.release()
 
     print(response)
 
@@ -151,26 +156,19 @@ def main():
     directory = args.directory
     if directory is None:
         directory = os.path.dirname(os.path.realpath(__file__))
-    # print("Before object initialization")
 
     httpfs = Httpfs(args.port, directory, args.verbose)
 
     if httpfs.verbose:
         print(f'Httpfs server is listening at port : {httpfs.port}')
 
-    TIMEOUT = 10000
-    start_time = time.time()
     while True:
         conn, _ = httpfs.server.accept()
-        start_time = time.time()
-        print("here")
         t = threading.Thread(target=handle_new_client, args=(conn, httpfs))
         t.start()
-        
-        if time.time() - start_time > TIMEOUT:
-            break
 
-    httpfs.disconnect()
+
+    # httpfs.disconnect()
 
 if __name__ == "__main__":
     main()   
