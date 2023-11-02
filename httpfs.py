@@ -4,6 +4,8 @@ import socket
 import json
 import re
 import xml.etree.ElementTree as ET
+import threading
+import time
 
 
 class Httpfs():
@@ -21,7 +23,9 @@ class Httpfs():
         server.bind(('', self.port))
         server.listen(5)
         return server
-
+    
+    def disconnect(self):
+        self.server.close()
 
     def get(self, path, return_type):
         response = ''
@@ -98,6 +102,40 @@ class Httpfs():
             response = "HTTP 403 - action refused \n"
         return response
 
+def handle_new_client(conn, httpfs):
+    print("1st line of handle_client")
+    request = conn.recv(1024).decode("utf-8")
+    request = request.split('\r\n')
+    print(request)
+    method_path_var = request[0].split()
+    method = method_path_var[0]
+    path = method_path_var[1]
+    overwrite = ''
+    return_type = ''
+
+    index = request.index('')
+    for header in request[2:index]:
+        if 'Overwrite' in header:
+            overwrite = header.split(":")[1]
+        
+        if 'Accept' in header:
+            return_type = header.split(":")[1].split("/")[1]
+            
+    data = ''
+    for l in request[index+1:]:
+        data += l + '\n'
+
+    response = ''
+    if method == 'GET':
+        response = httpfs.get(path, return_type)
+    elif method == 'POST':
+        response = httpfs.post(data, path, overwrite)
+
+    print(response)
+
+    conn.sendall(response.encode('utf-8'))
+    conn.close()
+
 
 def main():
 
@@ -106,8 +144,7 @@ def main():
     parser.add_argument(
         '-p', '--port', help='Specify port - Default is 8080', type=int, default=8080)
     parser.add_argument('-d', '--directory',
-                        help='Specify directory - Default is current', type=str)
-    # parser.add_argument("-o", "--overwrite", help="overwrite existing or not")
+                        help='Specify directory - Default is current', type=str, default='temp')
 
     args = parser.parse_args()
 
@@ -120,41 +157,20 @@ def main():
 
     if httpfs.verbose:
         print(f'Httpfs server is listening at port : {httpfs.port}')
+
+    TIMEOUT = 10000
+    start_time = time.time()
     while True:
         conn, _ = httpfs.server.accept()
-        request = conn.recv(1024).decode("utf-8")
-        request = request.split('\r\n')
-        print(request)
-        method_path_var = request[0].split()
-        method = method_path_var[0]
-        path = method_path_var[1]
-        overwrite = ''
-        return_type = ''
+        start_time = time.time()
+        print("here")
+        t = threading.Thread(target=handle_new_client, args=(conn, httpfs))
+        t.start()
+        
+        if time.time() - start_time > TIMEOUT:
+            break
 
-        index = request.index('')
-        for header in request[2:index]:
-            if 'Overwrite' in header:
-                overwrite = header.split(":")[1]
-            
-            if 'Accept' in header:
-                return_type = header.split(":")[1].split("/")[1]
-                
-        data = ''
-        for l in request[index+1:]:
-            data += l + '\n'
-
-        response = ''
-        if method == 'GET':
-            response = httpfs.get(path, return_type)
-        elif method == 'POST':
-            response = httpfs.post(data, path, overwrite)
-
-        print(response)
-
-        conn.sendall(response.encode('utf-8'))
-        conn.close()
-
-
+    httpfs.disconnect()
 
 if __name__ == "__main__":
     main()   

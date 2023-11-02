@@ -14,7 +14,6 @@ class HTTPC:
         self.file = file
         self.overwrite = overwrite
         self.request = request
-        # self.headers = headers
 
     def connect(self):
         self.conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -26,7 +25,6 @@ class HTTPC:
             sys.exit()
 
         self.connect()
-        # print(self.request)
         self.conn.send(self.request.encode())
 
         response = b""
