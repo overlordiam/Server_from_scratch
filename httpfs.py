@@ -59,7 +59,8 @@ class Httpfs():
                     for f in files:
                         response += f + '\n'
 
-        elif path.startswith("/../") or path.startswith("../"):
+        # elif path.startswith("/../") or path.startswith("../") or path.startswith("C:"):
+        elif re.search(r"(\.\.\/|\/\.\.\/|\C\:+)", path):
             response = "Restricted access to files outside current directory!!"
                         
         elif re.search(r'\/\w+.\w+', path):
@@ -83,47 +84,6 @@ class Httpfs():
             response = 'HTTP 404 - file(s) not found\n'
         return response
     
-    # def post(self, data, path, overwrite):
-    #     path = path.strip('/')
-    #     response = ''
-    #     files = os.listdir(self.directory)
-    #     if path in files:
-    #         if overwrite:
-    #             if self.verbose:
-    #                 print("Responding with data overwritten to file', path")
-                
-    #             with lock:
-    #                 time.sleep(1)
-    #                 with open(self.directory + '/' + path, 'w+') as theFile:
-    #                     theFile.write(data)
-    #                     print(data)
-
-    #             response = 'Data overwritten to file '+ path
-
-    #         else:
-    #             with lock:
-    #                 time.sleep(1)
-    #                 with open(self.directory + '/' + path, 'r') as theFile:
-    #                     file_data = theFile.read()
-    #                 file_data = file_data + data
-    #                 print("else: ", file_data)
-    #                 with open(self.directory + '/' + path, 'w+') as fileWrite:
-    #                     fileWrite.write(file_data)
-
-    #     elif path not in files:
-    #         if self.verbose:
-    #             print("Responding with data written to new file '+ path")
-        
-    #         with lock:
-    #             with open(self.directory + '/' + path, 'w+') as theFile:
-    #                 theFile.write(data)
-
-    #         response = 'Data written to new file ' + path
-    #     else:
-    #         if self.verbose:
-    #             print("Responding with HTTP 403 - action refused")
-    #         response = "HTTP 403 - action refused \n"
-    #     return response
 
     def post(self, data, path, overwrite):
 
@@ -183,7 +143,6 @@ class Httpfs():
 def handle_new_client(conn, httpfs):
     request = conn.recv(1024).decode("utf-8")
     request = request.split('\r\n')
-    # print(request)
     method_path_var = request[0].split()
     method = method_path_var[0]
     path = method_path_var[1]
@@ -214,15 +173,10 @@ def handle_new_client(conn, httpfs):
 
         response = ''
 
-        # time.sleep(3)
-
         if method == 'GET':
             response = httpfs.get(path, return_type)
         elif method == 'POST':
             response = httpfs.post(data, path, overwrite)
-        
-
-        # print(response)
 
         conn.sendall(response.encode('utf-8'))
         conn.close()
@@ -252,10 +206,8 @@ def main():
         conn, _ = httpfs.server.accept()
         t = threading.Thread(target=handle_new_client, args=(conn, httpfs))
         t.start()
-        # t.join()
 
 
-    # httpfs.disconnect()
 
 if __name__ == "__main__":
     main()   
