@@ -65,7 +65,7 @@ class HTTPC:
         self.request += "Content-Type: application/json\r\n"
         self.request += f"Content-Length: {len(body)}\r\n\r\n"
         self.request += body
-        print(self.request)
+        # print(self.request)
         self.conn.sendall(self.request.encode())
 
         response = b""

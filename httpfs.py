@@ -29,6 +29,7 @@ class Httpfs():
 
     def get(self, path, return_type):
         response = ''
+        print(path)
         files = os.listdir(self.directory)
         if path == '/':
             if self.verbose:
@@ -57,6 +58,9 @@ class Httpfs():
                 else:
                     for f in files:
                         response += f + '\n'
+
+        elif path.startswith("/../") or path.startswith("../"):
+            response = "Restricted access to files outside current directory!!"
                         
         elif re.search(r'\/\w+.\w+', path):
             path = path.strip('/')
@@ -66,6 +70,12 @@ class Httpfs():
                 theFile = open(self.directory + '/' + path, 'r')
                 response = theFile.read() + '\n'
                 theFile.close()
+            else:
+                if self.verbose:
+                    print(
+                        f'Responding with HTTP 404 - file(s) not found {path}')
+                response = 'HTTP 404 - file(s) not found\n'
+
         else:
             if self.verbose:
                 print(
@@ -75,6 +85,7 @@ class Httpfs():
     
 
     def post(self, data, path, overwrite):
+
         path = path.strip('/')
         response = ''
         lock = threading.RLock()
@@ -98,7 +109,7 @@ class Httpfs():
                 response = 'Data overwritten to file '+ path
 
             else:
-                
+
                 lock.acquire()
                 time.sleep(3)
                 theFile = open(self.directory + '/' + path, 'r')
@@ -137,35 +148,42 @@ def handle_new_client(conn, httpfs):
     return_type = ''
     overwrite = False
 
-    index = request.index('')
-    for header in request[2:index]:
-        if 'Overwrite' in header:
-            overwrite = True
-            break
-    
-    for header in request[2:index]:    
-        if 'Accept' in header:
-            return_type = header.split(":")[1].split("/")[1]
-            break
-            
-    data = ''
-    for l in request[index+1:]:
-        data += l + '\n'
+    if path.startswith("/../") or path.startswith("../"):
+        print("Client tried to access files outside authorized domain!!")
+        conn.sendall("Restricted access to files outside current directory!!".encode("utf-8"))
+        conn.close()
 
-    response = ''
+    else:
 
-    # time.sleep(3)
+        index = request.index('')
+        for header in request[2:index]:
+            if 'Overwrite' in header:
+                overwrite = True
+                break
+        
+        for header in request[2:index]:    
+            if 'Accept' in header:
+                return_type = header.split(":")[1].split("/")[1]
+                break
+                
+        data = ''
+        for l in request[index+1:]:
+            data += l + '\n'
 
-    if method == 'GET':
-        response = httpfs.get(path, return_type)
-    elif method == 'POST':
-        response = httpfs.post(data, path, overwrite)
-    
+        response = ''
 
-    # print(response)
+        # time.sleep(3)
 
-    conn.sendall(response.encode('utf-8'))
-    conn.close()
+        if method == 'GET':
+            response = httpfs.get(path, return_type)
+        elif method == 'POST':
+            response = httpfs.post(data, path, overwrite)
+        
+
+        # print(response)
+
+        conn.sendall(response.encode('utf-8'))
+        conn.close()
 
 
 def main():
