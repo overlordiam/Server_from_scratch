@@ -32,11 +32,14 @@ def run_clients():
   for _ in range(5):
     
     t = threading.Thread(target=client_thread)
-    t.start()
+    # t.start()
     threads.append(t)
     
-#   for t in threads:
-#     t.join()
+  for t in threads:
+    t.start()
+
+  # for t in threads:
+  #   t.join()
         
 if __name__ == '__main__':
 

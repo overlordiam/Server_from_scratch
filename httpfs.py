@@ -99,7 +99,7 @@ class Httpfs():
                     print("Responding with data overwritten to file', path")
                 
                 lock.acquire()
-                time.sleep(3)
+                time.sleep(1)
                 theFile = open(self.directory + '/' + path, 'w+')
                 theFile.write(data)
                 print(data)
@@ -111,7 +111,7 @@ class Httpfs():
             else:
 
                 lock.acquire()
-                time.sleep(3)
+                time.sleep(1)
                 theFile = open(self.directory + '/' + path, 'r')
                 file_data = theFile.read()
                 file_data = file_data + data
@@ -210,6 +210,7 @@ def main():
         conn, _ = httpfs.server.accept()
         t = threading.Thread(target=handle_new_client, args=(conn, httpfs))
         t.start()
+        t.join()
 
 
     # httpfs.disconnect()
