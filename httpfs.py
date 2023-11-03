@@ -10,7 +10,7 @@ import random
 
 
 class Httpfs():
-
+    lock= threading.RLock()
     def __init__(self, port, directory, verbose):
         self.port = port
         self.directory = directory
@@ -83,34 +83,74 @@ class Httpfs():
             response = 'HTTP 404 - file(s) not found\n'
         return response
     
+    # def post(self, data, path, overwrite):
+    #     path = path.strip('/')
+    #     response = ''
+    #     files = os.listdir(self.directory)
+    #     if path in files:
+    #         if overwrite:
+    #             if self.verbose:
+    #                 print("Responding with data overwritten to file', path")
+                
+    #             with lock:
+    #                 time.sleep(1)
+    #                 with open(self.directory + '/' + path, 'w+') as theFile:
+    #                     theFile.write(data)
+    #                     print(data)
+
+    #             response = 'Data overwritten to file '+ path
+
+    #         else:
+    #             with lock:
+    #                 time.sleep(1)
+    #                 with open(self.directory + '/' + path, 'r') as theFile:
+    #                     file_data = theFile.read()
+    #                 file_data = file_data + data
+    #                 print("else: ", file_data)
+    #                 with open(self.directory + '/' + path, 'w+') as fileWrite:
+    #                     fileWrite.write(file_data)
+
+    #     elif path not in files:
+    #         if self.verbose:
+    #             print("Responding with data written to new file '+ path")
+        
+    #         with lock:
+    #             with open(self.directory + '/' + path, 'w+') as theFile:
+    #                 theFile.write(data)
+
+    #         response = 'Data written to new file ' + path
+    #     else:
+    #         if self.verbose:
+    #             print("Responding with HTTP 403 - action refused")
+    #         response = "HTTP 403 - action refused \n"
+    #     return response
 
     def post(self, data, path, overwrite):
 
         path = path.strip('/')
         response = ''
-        lock = threading.RLock()
 
-        lock.acquire()
+        Httpfs.lock.acquire()
         files = os.listdir(self.directory)
-        lock.release()
+        Httpfs.lock.release()
         if path in files:
             if overwrite:
                 if self.verbose:
                     print("Responding with data overwritten to file', path")
                 
-                lock.acquire()
+                Httpfs.lock.acquire()
                 time.sleep(1)
                 theFile = open(self.directory + '/' + path, 'w+')
                 theFile.write(data)
                 print(data)
                 theFile.close()
-                lock.release()
+                Httpfs.lock.release()
 
                 response = 'Data overwritten to file '+ path
 
             else:
 
-                lock.acquire()
+                Httpfs.lock.acquire()
                 time.sleep(1)
                 theFile = open(self.directory + '/' + path, 'r')
                 file_data = theFile.read()
@@ -119,17 +159,18 @@ class Httpfs():
                 fileWrite = open(self.directory + '/' + path, 'w+')
                 fileWrite.write(file_data)
                 theFile.close()
-                lock.release()
+                Httpfs.lock.release()
+                response = "Appending data to the file"
 
         elif path not in files:
             if self.verbose:
                 print("Responding with data written to new file '+ path")
            
-            lock.acquire()
+            Httpfs.lock.acquire()
             theFile = open(self.directory + '/' + path, 'w+')
             theFile.write(data)
             theFile.close()
-            lock.release()
+            Httpfs.lock.release()
 
             response = 'Data written to new file ' + path
         else:
@@ -137,6 +178,7 @@ class Httpfs():
                 print("Responding with HTTP 403 - action refused")
             response = "HTTP 403 - action refused \n"
         return response
+
 
 def handle_new_client(conn, httpfs):
     request = conn.recv(1024).decode("utf-8")
@@ -210,7 +252,7 @@ def main():
         conn, _ = httpfs.server.accept()
         t = threading.Thread(target=handle_new_client, args=(conn, httpfs))
         t.start()
-        t.join()
+        # t.join()
 
 
     # httpfs.disconnect()
