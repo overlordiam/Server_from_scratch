@@ -5,6 +5,8 @@ import json
 import re
 import xml.etree.ElementTree as ET
 import threading
+import time
+import random
 
 
 class Httpfs():
@@ -72,29 +74,52 @@ class Httpfs():
         return response
     
 
-    def post(self, data, path, overwrite='true'):
+    def post(self, data, path, overwrite):
         path = path.strip('/')
         response = ''
+        lock = threading.RLock()
+
+        lock.acquire()
         files = os.listdir(self.directory)
+        lock.release()
         if path in files:
-            if overwrite.lower() == 'true':
+            if overwrite:
                 if self.verbose:
                     print("Responding with data overwritten to file', path")
+                
+                lock.acquire()
+                time.sleep(3)
                 theFile = open(self.directory + '/' + path, 'w+')
                 theFile.write(data)
+                print(data)
                 theFile.close()
-                response = 'Data overwritten to file '+path
+                lock.release()
+
+                response = 'Data overwritten to file '+ path
+
             else:
-                res = f"File: {path} already exists. Not overwriting!!"
-                response += res
-                # print(res)
+                
+                lock.acquire()
+                time.sleep(3)
+                theFile = open(self.directory + '/' + path, 'r')
+                file_data = theFile.read()
+                file_data = file_data + data
+                print("else: ", file_data)
+                fileWrite = open(self.directory + '/' + path, 'w+')
+                fileWrite.write(file_data)
+                theFile.close()
+                lock.release()
 
         elif path not in files:
             if self.verbose:
                 print("Responding with data written to new file '+ path")
+           
+            lock.acquire()
             theFile = open(self.directory + '/' + path, 'w+')
             theFile.write(data)
             theFile.close()
+            lock.release()
+
             response = 'Data written to new file ' + path
         else:
             if self.verbose:
@@ -103,7 +128,6 @@ class Httpfs():
         return response
 
 def handle_new_client(conn, httpfs):
-    print("1st line of handle_client")
     request = conn.recv(1024).decode("utf-8")
     request = request.split('\r\n')
     # print(request)
@@ -111,34 +135,32 @@ def handle_new_client(conn, httpfs):
     method = method_path_var[0]
     path = method_path_var[1]
     return_type = ''
+    overwrite = False
 
     index = request.index('')
     for header in request[2:index]:
         if 'Overwrite' in header:
-            overwrite = header.split(":")[1]
-        else:
-            overwrite = None
-        
+            overwrite = True
+            break
+    
+    for header in request[2:index]:    
         if 'Accept' in header:
             return_type = header.split(":")[1].split("/")[1]
+            break
             
     data = ''
     for l in request[index+1:]:
         data += l + '\n'
 
     response = ''
-    lock = threading.RLock()
-    lock.acquire()
+
+    # time.sleep(3)
 
     if method == 'GET':
         response = httpfs.get(path, return_type)
     elif method == 'POST':
-        if overwrite:
-            response = httpfs.post(data, path, overwrite)
-        else:
-            response = httpfs.post(data, path)
-
-    lock.release()
+        response = httpfs.post(data, path, overwrite)
+    
 
     # print(response)
 

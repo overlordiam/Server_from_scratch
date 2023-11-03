@@ -47,9 +47,8 @@ class HTTPC:
 
     def post(self, overwrite):
         self.connect()
-
         if overwrite:
-            self.request += f"Overwrite: {self.overwrite}\r\n"
+            self.request += f"Overwrite: {overwrite}\r\n"
 
         if self.file and self.data:
             print("Enter inline data or file. Not both!!")
@@ -128,7 +127,7 @@ def main():
     parser.add_argument("-d", "--data", help="Inline data to include in the request body")
     parser.add_argument("-f", "--file", help="File to include in the request body")
     parser.add_argument("-o", "--write", help="write server response to a file")
-    parser.add_argument("-r", "--overwrite", choices=["true", "false"], help="overwrite existing or not")
+    parser.add_argument("-r", "--overwrite", action="store_true", help="overwrite existing or not")
     parser.add_argument("url", help="URL to send the HTTP request to")
 
     args = parser.parse_args()
@@ -173,13 +172,15 @@ def main():
             sys.exit()
             
     elif args.method == "post" and args.method.lower() not in ['get', 'help']:
-        response = httpc.post(args.overwrite)
+        if args.overwrite:
+            overwrite = True
+        else:
+            overwrite = False
+
+        response = httpc.post(overwrite)
 
     else:
         print("Enter one of the following: 'help', 'get' or 'post'")
-
-    # if not args.verbose:
-    #     response = response.strip().split("\r\n\r\n", 1)[1]
 
     if args.write:
         file = open(args.write, 'w')

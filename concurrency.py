@@ -21,7 +21,7 @@ def client_thread():
     sock.send(request.encode())
 
     response = sock.recv(1024)
-    print(response)
+    print(response.decode('utf-8'))
 
     sock.close()
 
@@ -29,7 +29,7 @@ def run_clients():
 
   threads = []
 
-  for _ in range(10):
+  for _ in range(5):
     
     t = threading.Thread(target=client_thread)
     t.start()
