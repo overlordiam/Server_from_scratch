@@ -6,7 +6,7 @@ import re
 import xml.etree.ElementTree as ET
 import threading
 import time
-import random
+import mimetypes
 
 
 class Httpfs():
@@ -59,17 +59,31 @@ class Httpfs():
                     for f in files:
                         response += f + '\n'
 
-        # elif path.startswith("/../") or path.startswith("../") or path.startswith("C:"):
-        elif re.search(r"(\.\.\/|\/\.\.\/|\C\:+)", path):
+        elif path.startswith("/../") or path.startswith("../") or path.startswith("C:"):
             response = "Restricted access to files outside current directory!!"
                         
         elif re.search(r'\/\w+.\w+', path):
             path = path.strip('/')
+            content_type, _= mimetypes.guess_type(path)
+            if content_type is None:
+                file_type = None
+            else:
+                file_type = content_type.split("/")[1]
+            content_disposition = ''
+            if file_type in ["json", "html", None, "xml", "plain"]:
+                content_disposition = "inline"
+            else:
+                content_disposition = "attachment"
+
+            message=f"Content-Type: {content_type}\r\n"
+            message += f"Content-Disposition: {content_disposition}\r\n\r\n"
             if self.verbose:
                 print(f'Responding with contents of {path}')
+                print(f'Content-Type : {content_type}')
             if path in files:
                 theFile = open(self.directory + '/' + path, 'r')
-                response = theFile.read() + '\n'
+                response =message
+                response+= '\n'+ theFile.read() + '\n'
                 theFile.close()
             else:
                 if self.verbose:
@@ -82,7 +96,7 @@ class Httpfs():
                 print(
                     f'Responding with HTTP 404 - file(s) not found {path}')
             response = 'HTTP 404 - file(s) not found\n'
-        return response
+        return response 
     
 
     def post(self, data, path, overwrite):
